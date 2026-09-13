@@ -1,5 +1,5 @@
 "use client";
-//add
+
 import { useState } from "react";
 import { analyzeManual, analyzeBill, AnalyzeResponse } from "@/lib/api";
 import Header from "@/components/Header";
@@ -17,7 +17,10 @@ const initialStages: Stage[] = [
   { id: "recommend", label: "RECOMMENDATION AGENT", detail: "Prioritizing actionable guidance.", status: "pending" },
 ];
 
-// NEPRA-approved consumer tariff categories.
+// Fields that are commonly absent from standard residential bills (not
+// every meter/connection type reports these) - don't show them as
+// "missing" since that reads like a bug rather than expected variation.
+const NON_CRITICAL_MISSING_FIELDS = ["max_demand_kw", "bill_power_factor"];
 // rate is left undefined on purpose (per spec: "tariffs are never
 // hard-coded") — selecting a category just labels the connection type;
 // the user still types today's actual PKR/kWh rate for that category.
@@ -46,6 +49,7 @@ export default function Home() {
   const [previousKwh, setPreviousKwh] = useState("");
   const [billingDays, setBillingDays] = useState("30");
 
+  const [showExtractionDetails, setShowExtractionDetails] = useState(false);
   const [stages, setStages] = useState<Stage[]>(initialStages);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
@@ -257,15 +261,43 @@ export default function Home() {
 
           {result.extraction && (
             <section className="mb-8 panel p-4">
-              <div className="mono text-[10px] text-[var(--muted)] mb-2">BILL EXTRACTION</div>
-              <div className="text-[12px] text-[var(--text)]">
-                Found: {result.extraction.fields_found.join(", ") || "none"}
-              </div>
-              {result.extraction.fields_missing.length > 0 && (
-                <div className="text-[12px] text-[var(--muted)] mt-1">
-                  Missing: {result.extraction.fields_missing.join(", ")}
-                </div>
-              )}
+              {(() => {
+                const relevantMissing = result.extraction.fields_missing.filter(
+                  (f) => !NON_CRITICAL_MISSING_FIELDS.includes(f)
+                );
+                const allGood = relevantMissing.length === 0;
+                return (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="text-[13px]" style={{ color: allGood ? "var(--good)" : "var(--warning)" }}>
+                        {allGood
+                          ? "✓ Bill data extracted successfully."
+                          : `⚠ Some fields couldn't be read from this bill (${relevantMissing.length} field${relevantMissing.length === 1 ? "" : "s"}) — using available data only.`}
+                      </div>
+                      <button
+                        onClick={() => setShowExtractionDetails((v) => !v)}
+                        className="mono text-[11px] underline"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        {showExtractionDetails ? "Hide details" : "Show details"}
+                      </button>
+                    </div>
+                    {showExtractionDetails && (
+                      <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--panel-line)" }}>
+                        <div className="mono text-[10px] text-[var(--muted)] mb-2">BILL EXTRACTION</div>
+                        <div className="text-[12px] text-[var(--text)]">
+                          Found: {result.extraction.fields_found.join(", ") || "none"}
+                        </div>
+                        {relevantMissing.length > 0 && (
+                          <div className="text-[12px] text-[var(--muted)] mt-1">
+                            Missing: {relevantMissing.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </section>
           )}
 
