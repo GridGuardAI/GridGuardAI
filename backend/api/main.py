@@ -1,7 +1,7 @@
 """
 GridGuard AI - Backend API
 Implements the two input paths from spec section 2 / board deck slide 4
-("Bill uploads or manual entry"):
+("Bill uploads or manual entry"):  
     POST /analyze        - manual entry (JSON body, any subset of fields)
     POST /analyze-bill    - bill photo/PDF upload (extracted, then analyzed)
     GET  /health          - health check
