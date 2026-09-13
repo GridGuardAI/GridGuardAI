@@ -107,25 +107,28 @@ def analyze(request: AnalyzeRequest):
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
 @app.post("/analyze-bill")
 async def analyze_bill(
     file: UploadFile = File(...),
     tariff_pkr_per_kwh: Optional[float] = Form(None),
-    supply_voltage_v: Optional[float] = Form(None),
-    current_a: Optional[float] = Form(None),
-    power_factor: Optional[float] = Form(None),
     num_phases: Optional[int] = Form(None),
 ):
-    """Bill-upload path: extract fields from the image/PDF via vision LLM,
-    optionally merge in manually-supplied electrical readings (a bill alone
-    has no voltage/current/PF - those come from a meter reading if the user
-    has one), then run the full pipeline. Extraction failures/missing fields
-    are surfaced, never silently defaulted."""
+
     content = await file.read()
     mime_type = file.content_type or "image/jpeg"
 
     extracted = extract_bill_fields(content, mime_type)
+
+    derived_tariff_pkr_per_kwh = None
+    if tariff_pkr_per_kwh is None:
+        bill_total = extracted.get("electricity_cost_pkr")
+        units = extracted.get("current_consumption_kwh")
+        if bill_total is not None and units not in (None, 0):
+            derived_tariff_pkr_per_kwh = round(bill_total / units, 2)
+
+    effective_tariff = (
+        tariff_pkr_per_kwh if tariff_pkr_per_kwh is not None else derived_tariff_pkr_per_kwh
+    )
 
     inp = EngineInput(
         billing_period=extracted.get("billing_period"),
@@ -135,10 +138,7 @@ async def analyze_bill(
         electricity_cost_pkr=extracted.get("electricity_cost_pkr"),
         max_demand_kw=extracted.get("max_demand_kw"),
         bill_power_factor=extracted.get("bill_power_factor"),
-        tariff_pkr_per_kwh=tariff_pkr_per_kwh,
-        supply_voltage_v=supply_voltage_v,
-        current_a=current_a,
-        power_factor=power_factor,
+        tariff_pkr_per_kwh=effective_tariff,
         num_phases=num_phases,
     )
 
@@ -152,5 +152,8 @@ async def analyze_bill(
         "fields_missing": extracted.get("fields_missing", []),
         "meter_number": extracted.get("meter_number"),
         "due_date": extracted.get("due_date"),
+        "tariff_pkr_per_kwh_used": effective_tariff,
+        "tariff_source": "user_provided" if tariff_pkr_per_kwh is not None
+                          else ("derived_from_bill" if derived_tariff_pkr_per_kwh is not None else None),
     }
     return report
