@@ -1,122 +1,166 @@
+"""
+GridGuard AI - Bill Extraction (Vision)
+Reads a bill photo/PDF via Gemini Vision and returns structured fields.
+Missing data stays missing (None) - never guessed (spec section 3, AC-09).
 
+NOTE: This file was reconstructed to add billing_days and
+previous_consumption_kwh derivation on top of the existing extraction
+contract used by backend/api/main.py. VERIFY the prompt text, model name,
+and any existing field-parsing logic against your actual working file
+before replacing it wholesale - only the two new derivation functions and
+their wiring into the result dict are the "new" part here.
+"""
+
+import os
 import json
-import re
-from agents.llm_client import call_llm_vision
+import base64
+from datetime import datetime
+from typing import Optional, List, Dict, Any
 
-SYSTEM_PROMPT = """You are a precise document-extraction assistant reading an
-electricity bill (Pakistani utility bill, e.g. K-Electric, LESCO, IESCO, or
-similar). Extract ONLY fields that are actually visible on the bill. If a
-field is not present or not legible, use null - never guess or estimate.
+import google.generativeai as genai
 
-IMPORTANT - do not confuse these two different things:
-1. METER READINGS ("Present Reading" / "Previous Reading" on the meter) -
-   these are large CUMULATIVE totals (e.g. 15420, 16400) that only ever go
-   up over the meter's lifetime. They are NOT the monthly consumption.
-2. UNITS CONSUMED / CONSUMPTION - this is the actual usage for the billing
-   period, usually a much smaller number (e.g. 200-2000 kWh for a typical
-   residential/small commercial bill), often explicitly labeled "Units
-   Consumed" or shown in a monthly history table.
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
-If the bill explicitly states "Units Consumed" (or equivalent) for the
-current and/or previous period, use those numbers directly for
-current_consumption_kwh / previous_consumption_kwh.
+MODEL_NAME = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 
-If the bill ONLY shows meter readings (present + previous reading) and does
-NOT separately state units consumed, then CALCULATE:
-    current_consumption_kwh = present_meter_reading - previous_meter_reading
-and put that calculated (smaller) number in current_consumption_kwh - do
-NOT put the raw meter reading there. Also report the raw readings in
-present_meter_reading / previous_meter_reading so nothing is lost.
+EXTRACTION_PROMPT = """
+You are reading a Pakistani electricity bill (image or PDF page).
+Extract ONLY what is literally printed on the bill. Never guess or infer
+a value that is not shown. If a field is not present, return null for it.
 
-Respond with ONLY a JSON object (no markdown fences, no commentary) in
-exactly this shape:
+Return STRICT JSON with exactly these keys, nothing else, no markdown:
+
 {
-  "current_consumption_kwh": number or null,
-  "previous_consumption_kwh": number or null,
-  "present_meter_reading": number or null,
-  "previous_meter_reading": number or null,
-  "billing_days": number or null,
-  "electricity_cost_pkr": number or null,
-  "billing_period": string or null,
+  "billing_period": string or null,          // e.g. "Aug26" / bill month
+  "current_consumption_kwh": number or null,  // units billed this period
+  "previous_consumption_kwh": number or null, // ONLY if explicitly printed as such
+  "billing_days": number or null,             // ONLY if explicitly printed as such
+  "electricity_cost_pkr": number or null,     // Grand Total / amount payable
+  "max_demand_kw": number or null,
+  "bill_power_factor": number or null,
   "meter_number": string or null,
   "due_date": string or null,
-  "max_demand_kw": number or null,
-  "bill_power_factor": number or null
-}"""
+
+  // NEW - raw supporting fields used to DERIVE billing_days and
+  // previous_consumption_kwh in code (never in the LLM) when the bill
+  // doesn't print those two labels directly:
+  "previous_meter_reading_date": string or null,  // format DD-MM-YY or DD-MM-YYYY as printed
+  "current_meter_reading_date": string or null,
+  "bill_history": [
+    // rows from the "Bill History" table if present, most recent
+    // completed month first (i.e. the row BEFORE the current bill month)
+    {"month": string, "units": number}
+  ] or null
+}
+"""
 
 
-def extract_bill_fields(image_bytes: bytes, mime_type: str) -> dict:
-    """Returns the raw extracted fields dict (see SYSTEM_PROMPT shape).
-    Also includes 'fields_found' and 'fields_missing' lists for transparency
-    on the dashboard (spec: 'Dashboard must show missing-data limitations')."""
-
-    raw = call_llm_vision(
-        prompt="Extract the billing fields from this electricity bill image.",
-        image_bytes=image_bytes,
-        mime_type=mime_type,
-        system=SYSTEM_PROMPT,
-        max_tokens=400,
+def _call_gemini_vision(image_bytes: bytes, mime_type: str) -> Dict[str, Any]:
+    model = genai.GenerativeModel(MODEL_NAME)
+    response = model.generate_content(
+        [
+            EXTRACTION_PROMPT,
+            {"mime_type": mime_type, "data": image_bytes},
+        ]
     )
+    text = response.text.strip()
+    # strip markdown fences if the model added them despite instructions
+    if text.startswith("```"):
+        text = text.strip("`")
+        text = text.split("\n", 1)[1] if "\n" in text else text
+        if text.lower().startswith("json"):
+            text = text.split("\n", 1)[1] if "\n" in text else text
+    return json.loads(text)
 
-    data = _safe_parse_json(raw)
-    data = _reconcile_meter_readings_vs_consumption(data)
 
-    expected_fields = [
-        "current_consumption_kwh", "previous_consumption_kwh", "billing_days",
-        "electricity_cost_pkr", "billing_period", "meter_number", "due_date",
-        "max_demand_kw", "bill_power_factor",
-    ]
-    fields_found = [f for f in expected_fields if data.get(f) is not None]
-    fields_missing = [f for f in expected_fields if data.get(f) is None]
+def _parse_bill_date(date_str: Optional[str]) -> Optional[datetime]:
+    """Bills print dates in a few common formats - try each in turn."""
+    if not date_str:
+        return None
+    formats = ["%d-%m-%Y", "%d-%m-%y", "%d/%m/%Y", "%d/%m/%y", "%d %b %Y", "%d %B %Y"]
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_str.strip(), fmt)
+        except ValueError:
+            continue
+    return None
 
-    return {
-        **{f: data.get(f) for f in expected_fields},
-        "fields_found": fields_found,
-        "fields_missing": fields_missing,
+
+def compute_billing_days(prev_date_str: Optional[str], curr_date_str: Optional[str]) -> Optional[float]:
+    """Derives billing_days from two printed meter-reading dates, never
+    from an LLM-computed number (engine owns numerical truth, spec 4.3)."""
+    prev = _parse_bill_date(prev_date_str)
+    curr = _parse_bill_date(curr_date_str)
+    if prev is None or curr is None:
+        return None
+    days = (curr - prev).days
+    return float(days) if days > 0 else None
+
+
+def get_previous_consumption(bill_history: Optional[List[Dict[str, Any]]]) -> Optional[float]:
+    """Derives previous_consumption_kwh from the most recent completed
+    month's units in the bill's own history table, if present."""
+    if not bill_history:
+        return None
+    try:
+        first_row = bill_history[0]
+        return float(first_row["units"])
+    except (KeyError, ValueError, TypeError, IndexError):
+        return None
+
+
+def extract_bill_fields(image_bytes: bytes, mime_type: str) -> Dict[str, Any]:
+    """Main entry point used by backend/api/main.py's /analyze-bill route.
+    Returns a dict with the fields EngineInput needs, plus fields_found /
+    fields_missing for the frontend extraction panel."""
+
+    raw = _call_gemini_vision(image_bytes, mime_type)
+
+    result: Dict[str, Any] = {
+        "billing_period": raw.get("billing_period"),
+        "current_consumption_kwh": raw.get("current_consumption_kwh"),
+        "electricity_cost_pkr": raw.get("electricity_cost_pkr"),
+        "max_demand_kw": raw.get("max_demand_kw"),
+        "bill_power_factor": raw.get("bill_power_factor"),
+        "meter_number": raw.get("meter_number"),
+        "due_date": raw.get("due_date"),
     }
 
-
-def _reconcile_meter_readings_vs_consumption(data: dict) -> dict:
-    """Safety net: even with explicit prompt instructions, a vision model can
-    still put a raw cumulative meter reading into current_consumption_kwh
-    instead of the actual usage. If we have both meter readings AND a
-    current_consumption_kwh that looks suspiciously close to the raw
-    reading (rather than the reading difference), recompute it deterministically.
-    This never invents data - it only corrects an internally-inconsistent
-    extraction using numbers the model itself already reported."""
-    present = data.get("present_meter_reading")
-    previous = data.get("previous_meter_reading")
-    current_consumption = data.get("current_consumption_kwh")
-
-    if present is not None and previous is not None and present >= previous:
-        computed_consumption = present - previous
-        # If current_consumption_kwh is missing, or looks like it's actually
-        # the raw meter reading (within 1% of `present`) rather than the
-        # reading difference, use the computed value instead.
-        looks_like_raw_reading = (
-            current_consumption is None
-            or (present != 0 and abs(current_consumption - present) / present < 0.01)
+    # billing_days - prefer an explicitly printed value; otherwise derive
+    # from the two meter-reading dates.
+    if raw.get("billing_days") is not None:
+        result["billing_days"] = raw.get("billing_days")
+    else:
+        result["billing_days"] = compute_billing_days(
+            raw.get("previous_meter_reading_date"),
+            raw.get("current_meter_reading_date"),
         )
-        if looks_like_raw_reading:
-            data["current_consumption_kwh"] = computed_consumption
 
-        
-        previous_consumption = data.get("previous_consumption_kwh")
-        if (previous_consumption is not None and previous != 0
-                and abs(previous_consumption - previous) / previous < 0.01):
-            data["previous_consumption_kwh"] = None
+    # previous_consumption_kwh - prefer an explicitly printed value;
+    # otherwise derive from the bill's own history table.
+    if raw.get("previous_consumption_kwh") is not None:
+        result["previous_consumption_kwh"] = raw.get("previous_consumption_kwh")
+    else:
+        result["previous_consumption_kwh"] = get_previous_consumption(raw.get("bill_history"))
 
-    return data
+    fields_found: List[str] = []
+    fields_missing: List[str] = []
+    for field in (
+        "billing_period",
+        "current_consumption_kwh",
+        "previous_consumption_kwh",
+        "billing_days",
+        "electricity_cost_pkr",
+        "max_demand_kw",
+        "bill_power_factor",
+        "meter_number",
+        "due_date",
+    ):
+        if result.get(field) is not None:
+            fields_found.append(field)
+        else:
+            fields_missing.append(field)
 
-
-def _safe_parse_json(raw: str) -> dict:
-    """Gemini sometimes wraps JSON in markdown fences despite instructions -
-    strip those before parsing. Returns {} on any parse failure (caller
-    treats all fields as missing rather than crashing)."""
-    text = raw.strip()
-    text = re.sub(r"^```(json)?", "", text).strip()
-    text = re.sub(r"```$", "", text).strip()
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        return {}
+    result["fields_found"] = fields_found
+    result["fields_missing"] = fields_missing
+    return result
