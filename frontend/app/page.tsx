@@ -38,7 +38,7 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>("bill");
   const [file, setFile] = useState<File | null>(null);
   const [tariffCategory, setTariffCategory] = useState("");
-  const [tariff, setTariff] = useState("");
+  const [derivedTariff, setDerivedTariff] = useState<string>("");
   const [phases, setPhases] = useState("1");
   const [billPreviousKwh, setBillPreviousKwh] = useState("");
 
@@ -61,6 +61,7 @@ export default function Home() {
     setRunning(true);
     setError(null);
     setResult(null);
+    setDerivedTariff("");
     setStages(initialStages.map((s, i) => ({ ...s, status: i === 0 ? "active" : "pending" })));
 
     const t1 = setTimeout(() => {
@@ -78,7 +79,6 @@ export default function Home() {
       if (mode === "bill") {
         if (!file) throw new Error("Please choose a bill image/PDF first.");
         data = await analyzeBill(file, {
-          tariff_pkr_per_kwh: num(tariff),
           num_phases: num(phases),
           previous_consumption_kwh: num(billPreviousKwh),
         });
@@ -87,7 +87,6 @@ export default function Home() {
           current_consumption_kwh: num(currentKwh),
           previous_consumption_kwh: num(previousKwh),
           billing_days: num(billingDays),
-          tariff_pkr_per_kwh: num(tariff),
           num_phases: num(phases),
         });
       }
@@ -95,6 +94,8 @@ export default function Home() {
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
       setStages(initialStages.map((s) => ({ ...s, status: "done" })));
       setResult(data);
+      const usedRate = data.extraction?.tariff_pkr_per_kwh_used;
+      setDerivedTariff(usedRate !== undefined && usedRate !== null ? String(usedRate) : "");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
       setStages(initialStages);
@@ -204,13 +205,21 @@ export default function Home() {
             onChange={setTariffCategory}
             options={TARIFF_OPTIONS.map((t) => ({ value: t.code, label: t.label }))}
           />
-          <input
-            value={tariff}
-            onChange={(e) => setTariff(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-            placeholder="Tariff rate (PKR/kWh)"
-          />
+          <div>
+            <input
+              value={derivedTariff}
+              readOnly
+              disabled
+              className={inputClass}
+              style={{ ...inputStyle, opacity: 0.6, cursor: "not-allowed" }}
+              placeholder="Tariff (PKR/kWh) — auto-calculated"
+            />
+            {derivedTariff && (
+              <div className="mono text-[10px] text-[var(--muted)] mt-1">
+                Auto-derived from bill total ÷ units — not the official NEPRA base rate.
+              </div>
+            )}
+          </div>
         </div>
 
         <button
