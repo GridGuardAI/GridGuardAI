@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import AgentTracker, { Stage } from "@/components/AgentTracker";
 import EngineeringSummary from "@/components/EngineeringSummary";
 import DiagnosisCard from "@/components/DiagnosisCard";
+import Select from "@/components/Select";
 
 type Mode = "bill" | "manual";
 
@@ -184,10 +185,14 @@ export default function Home() {
           <input value={voltage} onChange={(e) => setVoltage(e.target.value)} className={inputClass} style={inputStyle} placeholder="Voltage (V)" />
           <input value={current} onChange={(e) => setCurrent(e.target.value)} className={inputClass} style={inputStyle} placeholder="Current (A)" />
           <input value={pf} onChange={(e) => setPf(e.target.value)} className={inputClass} style={inputStyle} placeholder="Power Factor" />
-          <select value={phases} onChange={(e) => setPhases(e.target.value)} className={inputClass} style={inputStyle}>
-            <option value="1">1 Phase</option>
-            <option value="3">3 Phase</option>
-          </select>
+         <Select
+  value={phases}
+  onChange={setPhases}
+  options={[
+    { value: "1", label: "1 Phase" },
+    { value: "3", label: "3 Phase" },
+  ]}
+/>
           <input value={tariff} onChange={(e) => setTariff(e.target.value)} className={inputClass} style={inputStyle} placeholder="Tariff (PKR/kWh)" />
         </div>
 
