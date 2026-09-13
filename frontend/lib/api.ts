@@ -78,6 +78,8 @@ export interface AnalyzeResponse {
     fields_missing: string[];
     meter_number: string | null;
     due_date: string | null;
+    tariff_pkr_per_kwh_used?: number | null;
+    tariff_source?: "user_provided" | "derived_from_bill" | null;
   };
 }
 
@@ -98,9 +100,6 @@ export async function analyzeBill(
   file: File,
   extras: {
     tariff_pkr_per_kwh?: number;
-    supply_voltage_v?: number;
-    current_a?: number;
-    power_factor?: number;
     num_phases?: number;
     previous_consumption_kwh?: number;
   } = {}
