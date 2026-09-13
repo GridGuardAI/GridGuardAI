@@ -3,7 +3,6 @@
 import { EngineeringFacts } from "@/lib/api";
 import ConsumptionChart from "./ConsumptionChart";
 import PowerFactorGauge from "./PowerFactorGauge";
-import VoltageDeviationMeter from "./VoltageDeviationMeter";
 
 function Stat({ label, value, unit }: { label: string; value: string | number | null; unit?: string }) {
   return (
@@ -30,20 +29,13 @@ export default function EngineeringSummary({ facts }: { facts: EngineeringFacts 
         ENGINEERING FACTS — DETERMINISTIC
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <div className="grid md:grid-cols-2 gap-4 mb-6">
         <ConsumptionChart
           currentKwh={facts.daily_consumption_current_kwh}
           previousKwh={facts.daily_consumption_previous_kwh}
           changePercent={facts.consumption_change_percent}
         />
         <PowerFactorGauge powerFactor={facts.power_factor} />
-        <div className="dial-border rounded-sm bg-[var(--panel)] p-2">
-          <VoltageDeviationMeter
-            voltage={facts.voltage_v}
-            nominal={facts.nominal_voltage_v}
-            deviationPercent={facts.voltage_deviation_percent}
-          />
-        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5 pt-5 border-t" style={{ borderColor: "var(--panel-line)" }}>
