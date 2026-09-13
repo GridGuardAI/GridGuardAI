@@ -17,13 +17,28 @@ const initialStages: Stage[] = [
   { id: "recommend", label: "RECOMMENDATION AGENT", detail: "Prioritizing actionable guidance.", status: "pending" },
 ];
 
+// NEPRA-approved consumer tariff categories.
+// rate is left undefined on purpose (per spec: "tariffs are never
+// hard-coded") — selecting a category just labels the connection type;
+// the user still types today's actual PKR/kWh rate for that category.
+const TARIFF_OPTIONS = [
+  { code: "", label: "— Select tariff category —" },
+  { code: "a1", label: "A-1 · Residential (protected)" },
+  { code: "a1np", label: "A-1 · Residential (non-protected)" },
+  { code: "a2", label: "A-2 · Commercial" },
+  { code: "b1", label: "B-1 · Industrial (LT)" },
+  { code: "b2", label: "B-2 · Industrial (MT)" },
+  { code: "b3", label: "B-3 · Industrial (HT/EHT)" },
+  { code: "c1", label: "C-1 · Agricultural Tubewell" },
+  { code: "d1", label: "D-1 · Public Lighting" },
+  { code: "g1", label: "G-1 · Temporary Supply" },
+];
+
 export default function Home() {
   const [mode, setMode] = useState<Mode>("bill");
   const [file, setFile] = useState<File | null>(null);
+  const [tariffCategory, setTariffCategory] = useState("");
   const [tariff, setTariff] = useState("");
-  const [voltage, setVoltage] = useState("");
-  const [current, setCurrent] = useState("");
-  const [pf, setPf] = useState("");
   const [phases, setPhases] = useState("1");
   const [billPreviousKwh, setBillPreviousKwh] = useState("");
 
@@ -64,9 +79,6 @@ export default function Home() {
         if (!file) throw new Error("Please choose a bill image/PDF first.");
         data = await analyzeBill(file, {
           tariff_pkr_per_kwh: num(tariff),
-          supply_voltage_v: num(voltage),
-          current_a: num(current),
-          power_factor: num(pf),
           num_phases: num(phases),
           previous_consumption_kwh: num(billPreviousKwh),
         });
@@ -76,9 +88,6 @@ export default function Home() {
           previous_consumption_kwh: num(previousKwh),
           billing_days: num(billingDays),
           tariff_pkr_per_kwh: num(tariff),
-          supply_voltage_v: num(voltage),
-          current_a: num(current),
-          power_factor: num(pf),
           num_phases: num(phases),
         });
       }
@@ -179,21 +188,29 @@ export default function Home() {
         )}
 
         <div className="mono text-[11px] text-[var(--muted)] mb-2 mt-2">
-          OPTIONAL — ELECTRICAL READINGS &amp; TARIFF (leave blank if unknown)
+          OPTIONAL — CONNECTION &amp; TARIFF (leave blank if unknown)
         </div>
-        <div className="grid md:grid-cols-5 gap-3 mb-5">
-          <input value={voltage} onChange={(e) => setVoltage(e.target.value)} className={inputClass} style={inputStyle} placeholder="Voltage (V)" />
-          <input value={current} onChange={(e) => setCurrent(e.target.value)} className={inputClass} style={inputStyle} placeholder="Current (A)" />
-          <input value={pf} onChange={(e) => setPf(e.target.value)} className={inputClass} style={inputStyle} placeholder="Power Factor" />
-         <Select
-  value={phases}
-  onChange={setPhases}
-  options={[
-    { value: "1", label: "1 Phase" },
-    { value: "3", label: "3 Phase" },
-  ]}
-/>
-          <input value={tariff} onChange={(e) => setTariff(e.target.value)} className={inputClass} style={inputStyle} placeholder="Tariff (PKR/kWh)" />
+        <div className="grid md:grid-cols-3 gap-3 mb-5">
+          <Select
+            value={phases}
+            onChange={setPhases}
+            options={[
+              { value: "1", label: "1 Phase" },
+              { value: "3", label: "3 Phase" },
+            ]}
+          />
+          <Select
+            value={tariffCategory}
+            onChange={setTariffCategory}
+            options={TARIFF_OPTIONS.map((t) => ({ value: t.code, label: t.label }))}
+          />
+          <input
+            value={tariff}
+            onChange={(e) => setTariff(e.target.value)}
+            className={inputClass}
+            style={inputStyle}
+            placeholder="Tariff rate (PKR/kWh)"
+          />
         </div>
 
         <button
