@@ -1,10 +1,3 @@
-"""
-GridGuard AI - RAG / Evidence Agent retrieval layer.
-Lightweight TF-IDF retrieval over the knowledge base - no external embedding
-API needed, works instantly. RAG never alters engine numbers (spec section 7);
-it only supplies grounding text + citation for the other agents to reference.
-"""
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from rag.knowledge_base import KNOWLEDGE_BASE
