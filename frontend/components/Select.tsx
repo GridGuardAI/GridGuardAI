@@ -14,26 +14,7 @@ interface SelectProps {
   placeholder?: string;
 }
 
-/**
- * Drop-in replacement for a native <select>, styled to match the
- * dark panel / mono / cyan-accent theme used across the app.
- *
- * Native <select> dropdown lists are rendered by the OS/browser and
- * can't be reliably restyled with CSS - that's why the popup list
- * shows up white with default blue highlights no matter what classes
- * you put on the <select> itself. This component replaces the whole
- * thing with a button + an absolutely-positioned list we fully control.
- *
- * Usage (replacing the phases <select> in page.tsx):
- *   <Select
- *     value={phases}
- *     onChange={setPhases}
- *     options={[
- *       { value: "1", label: "1 Phase" },
- *       { value: "3", label: "3 Phase" },
- *     ]}
- *   />
- */
+
 export default function Select({ value, onChange, options, placeholder = "Select..." }: SelectProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
