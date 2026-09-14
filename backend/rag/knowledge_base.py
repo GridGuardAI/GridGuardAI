@@ -1,22 +1,3 @@
-"""
-GridGuard AI - RAG Knowledge Base (spec section 7: Evidence Layer)
-"Calculated facts come from the electrical engine. RAG supplies technical
-evidence and citations. RAG does not change the engine's numerical results."
-
-Each entry has a citation label so agent output can reference a source,
-matching the board-deck promise "every recommendation cites a source".
-
-Includes real regulatory references from the official NEPRA Consumer
-Service Manual (Revised 2025) - paraphrased (not quoted verbatim) with
-chapter/section citations, plus general technical reference entries.
-Source document: https://nepra.org.pk/Legislation/7-Manuals/2025/
-CONSUMER%20SERVICE%20MANUAL%20(CSM)%20REVISED%202025.pdf
-
-Expand this list further with additional NEPRA/DISCO documents as the team
-finds them - each entry should be a short, self-contained, paraphrased fact
-with a traceable source label.
-"""
-
 KNOWLEDGE_BASE = [
     {
         "text": "A power factor below 0.90 typically indicates inductive loads such as "
