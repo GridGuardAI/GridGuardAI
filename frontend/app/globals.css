@@ -9,11 +9,9 @@
   --text: #e7ede9;
   --muted: #8ea393;
 
-  /* Single brand accent - used for chrome, buttons, focus states, "active" state */
+
   --accent: #f2a83c;
   --accent-dim: #5c3f0c;
-
-  /* Severity colors - ONLY for anomaly severity, never for brand chrome */
   --critical: #e5615a;
   --critical-dim: #4a1512;
   --warning: #f2c14e;
