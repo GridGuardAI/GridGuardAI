@@ -1,14 +1,3 @@
-"""
-GridGuard AI - Shared LLM client
-Wraps whichever LLM API you choose (Gemini, Anthropic Claude, or OpenAI).
-Reads API keys from a .env file (project root) or environment variables.
-
-Setup:
-    1. Copy .env.example to .env in the project root
-    2. Fill in your GEMINI_API_KEY (or ANTHROPIC_API_KEY / OPENAI_API_KEY)
-    3. pip install -r requirements.txt
-"""
-
 import os
 import time
 from dotenv import load_dotenv
