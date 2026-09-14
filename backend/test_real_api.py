@@ -1,10 +1,4 @@
 """
-GridGuard AI - Real API Key Smoke Test
-Run this AFTER setting GEMINI_API_KEY in your .env, BEFORE running the full
-API server. Tests the two things most likely to break with a real key:
-  1. Plain text LLM calls (used by Consumption/Fault + Recommendation agents)
-  2. Vision calls on a real bill image (used by bill extraction / OCR)
-
 Usage:
     python test_real_api.py                          # text-only test
     python test_real_api.py /path/to/bill_photo.jpg   # text + vision test
