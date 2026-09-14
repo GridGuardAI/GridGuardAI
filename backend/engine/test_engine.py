@@ -1,9 +1,3 @@
-"""
-GridGuard AI - Engineering Engine Acceptance Tests
-Directly implements spec section 10 (Acceptance Criteria AC-01 to AC-10)
-and section 11 quality criteria. Run with: python -m engine.test_engine
-"""
-
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
