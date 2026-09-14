@@ -17,13 +17,9 @@ const initialStages: Stage[] = [
   { id: "recommend", label: "RECOMMENDATION AGENT", detail: "Prioritizing actionable guidance.", status: "pending" },
 ];
 
-// Fields that are commonly absent from standard residential bills (not
-// every meter/connection type reports these) - don't show them as
-// "missing" since that reads like a bug rather than expected variation.
+
 const NON_CRITICAL_MISSING_FIELDS = ["max_demand_kw", "bill_power_factor"];
-// rate is left undefined on purpose (per spec: "tariffs are never
-// hard-coded") — selecting a category just labels the connection type;
-// the user still types today's actual PKR/kWh rate for that category.
+
 const TARIFF_OPTIONS = [
   { code: "", label: "— Select tariff category —" },
   { code: "a1", label: "A-1 · Residential (protected)" },
