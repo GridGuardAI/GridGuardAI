@@ -1,16 +1,3 @@
-"""
-GridGuard AI - Backend API
-Implements the two input paths from spec section 2 / board deck slide 4
-("Bill uploads or manual entry"):  
-    POST /analyze        - manual entry (JSON body, any subset of fields)
-    POST /analyze-bill    - bill photo/PDF upload (extracted, then analyzed)
-    GET  /health          - health check
-
-Run locally:
-    pip install -r requirements.txt
-    uvicorn api.main:app --reload --port 8000
-"""
-
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,10 +21,7 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------------------------
 # Request/response models
-# ---------------------------------------------------------------------------
-
 class LoadItemRequest(BaseModel):
     load_type: str
     power_kw: Optional[float] = None
