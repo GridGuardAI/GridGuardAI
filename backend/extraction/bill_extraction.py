@@ -1,16 +1,3 @@
-"""
-GridGuard AI - Bill Extraction (Vision)
-Reads a bill photo/PDF via Gemini Vision and returns structured fields.
-Missing data stays missing (None) - never guessed (spec section 3, AC-09).
-
-NOTE: This file was reconstructed to add billing_days and
-previous_consumption_kwh derivation on top of the existing extraction
-contract used by backend/api/main.py. VERIFY the prompt text, model name,
-and any existing field-parsing logic against your actual working file
-before replacing it wholesale - only the two new derivation functions and
-their wiring into the result dict are the "new" part here.
-"""
-
 import os
 import json
 import base64
