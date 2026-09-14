@@ -1,14 +1,4 @@
 """
-GridGuard AI - AI Output Quality Evaluation
-Runs representative anomaly scenarios through the REAL agents (Consumption/
-Fault Analysis Agent + Recommendation Agent) and checks the output against
-spec rules that are about AI *behavior*, not electrical calculation
-correctness (that's covered by engine/test_engine.py).
-
-This is "evaluation of agent behavior" per the team's Phase 1 deliverable
-list (Anha's ownership). Needs a real LLM_PROVIDER key configured in .env -
-these are not mocked, since the whole point is checking real model output.
-
 Usage:
     python test_ai_output_quality.py
 """
@@ -24,9 +14,6 @@ from agents.orchestrator import run_full_pipeline
 
 ALLOWED_CONFIDENCE = {"High confidence", "Medium confidence", "Low confidence", "Cannot determine"}
 
-# Phrases that would violate spec section 4.6 / 6 ("do not automatically
-# claim a financial penalty applies", "should not state a fault is
-# DEFINITELY X without validated supporting measurements")
 OVERCONFIDENT_PHRASES = [
     "definitely caused by", "certainly caused by", "is definitely",
     "guaranteed to", "will certainly", "without a doubt",
