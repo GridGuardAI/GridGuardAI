@@ -1,44 +1,10 @@
-"""
-GridGuard AI - Deterministic Electrical Engineering Engine
-Implements: GridGuard AI Phase 1 Electrical Engineering Specification.
-
-This module is the "technical truth" layer (spec section 14, owned by
-Electrical Engineering). It performs validation, normalization, engineering
-calculations, and rule-based anomaly screening (EE-01 to EE-07). It returns
-ONLY the structured output contract defined in spec section 8.
-
-HARD RULES enforced by this file (do not violate these when editing):
-  - No speculative diagnosis here. This module computes; it never explains
-    "why" something happened - that's the AI agents' job (spec section 1).
-  - Missing data stays missing (None), never silently defaulted
-    (e.g. never assume PF=1 - spec section 3, AC-09).
-  - No divide-by-zero: zero-baseline / zero-total conditions return None
-    with an explicit note, not a crash or a fake number (spec 4.2, 4.7, 11).
-  - Tariff is never hard-coded to one universal value (spec 4.8) - it must
-    be passed in by the caller (user-provided or from an approved source).
-  - Thresholds live in one place (THRESHOLDS / NOMINAL_VOLTAGE below), not
-    scattered as magic numbers (spec section 11).
-  - When a stronger anomaly threshold is crossed, report only the stronger
-    classification, not both (spec section 5 note; see AC-02, AC-06).
-"""
-
 import math
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 
-
-# ---------------------------------------------------------------------------
-# Configurable thresholds (spec sections 4.4, 4.6, 4.9, 5)
-# These are MVP screening thresholds, NOT universal regulatory limits
-# (spec section 4.4, 4.9, 15). Swap freely without touching logic below.
-# ---------------------------------------------------------------------------
-
 NOMINAL_VOLTAGE_V = 230.0  # single-phase nominal (phase-to-neutral), Pakistan grid assumption
 NOMINAL_LINE_VOLTAGE_V = 400.0  # three-phase nominal (phase-to-phase / line voltage)
-# Note: 400V is the expected LINE voltage when phase voltage is 230V (230 x sqrt(3)
-# ~ 398.4V) - this is NORMAL for a healthy 3-phase system, not a deviation. Comparing
-# a 3-phase line voltage against the single-phase nominal would incorrectly flag a
-# ~74% "deviation" that is actually just the expected line/phase relationship.
+
 
 THRESHOLDS = {
     "consumption_change_warning_pct": 20.0,   # EE-01
@@ -51,11 +17,6 @@ THRESHOLDS = {
     "load_model_mismatch_pct": 20.0,           # EE-07
 }
 
-
-# ---------------------------------------------------------------------------
-# Input model (spec section 2) - every field optional except where noted;
-# missing values MUST be passed as None, never guessed.
-# ---------------------------------------------------------------------------
 
 @dataclass
 class LoadItem:
@@ -101,11 +62,6 @@ class ValidationError(Exception):
     """Raised for out-of-range inputs (spec section 3)."""
     pass
 
-
-# ---------------------------------------------------------------------------
-# Section 3: Data Validation Rules
-# ---------------------------------------------------------------------------
-
 def validate(inp: EngineInput) -> List[str]:
     """Returns a list of validation warning strings. Raises ValidationError
     for hard violations (out-of-range values that make calculation unsafe)."""
@@ -146,10 +102,6 @@ def validate(inp: EngineInput) -> List[str]:
 
     return warnings
 
-
-# ---------------------------------------------------------------------------
-# Section 4: Core Calculation Rules
-# ---------------------------------------------------------------------------
 
 def calc_load_energy_kwh(load: LoadItem) -> Optional[float]:
     """4.1 - E_load = P_load(kW) x hours/day x days/month x quantity."""
@@ -262,10 +214,6 @@ def calc_operating_hour_change_pct(current_hours_month: Optional[float],
     return ((current_hours_month - previous_hours_month) / previous_hours_month) * 100
 
 
-# ---------------------------------------------------------------------------
-# Section 5: Main Anomaly Rules (EE-01 to EE-07)
-# ---------------------------------------------------------------------------
-
 def _anomaly(atype, severity, value, threshold, explanation):
     return {"type": atype, "severity": severity, "value": value, "threshold": threshold, "explanation": explanation}
 
@@ -344,10 +292,6 @@ def evaluate_anomalies(consumption_change_pct: Optional[float],
     return anomalies
 
 
-# ---------------------------------------------------------------------------
-# Orchestration: run the full engine and produce the Section 8 output contract
-# ---------------------------------------------------------------------------
-
 def run_engine(inp: EngineInput) -> Dict[str, Any]:
     """Runs validation + all calculations + anomaly rules and returns EXACTLY
     the structure defined in spec section 8, plus a top-level 'warnings' list
@@ -410,11 +354,6 @@ def run_engine(inp: EngineInput) -> Dict[str, Any]:
         additional_kwh = inp.current_consumption_kwh - inp.previous_consumption_kwh
     additional_cost_pkr = calc_cost_pkr(additional_kwh, inp.tariff_pkr_per_kwh)
 
-    # --- Voltage deviation (4.9) ---
-    # For 3-phase systems, the relevant "supply voltage" reading is typically
-    # the line voltage, which must be compared against the LINE nominal
-    # (400V), not the single-phase nominal (230V) - otherwise a perfectly
-    # healthy 3-phase system falsely reads as a huge voltage deviation.
     if inp.num_phases == 3:
         voltage_for_deviation = inp.line_voltage_v if inp.line_voltage_v is not None else inp.supply_voltage_v
         applicable_nominal = NOMINAL_LINE_VOLTAGE_V
