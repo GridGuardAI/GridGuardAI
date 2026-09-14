@@ -1,4 +1,3 @@
-// GridGuard AI - API client (Phase 1 spec-compliant contract)
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface LoadItem {
