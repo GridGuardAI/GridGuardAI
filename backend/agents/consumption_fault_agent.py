@@ -1,20 +1,3 @@
-"""
-GridGuard AI - Consumption / Fault Analysis Agent
-(board-deck agent #2: "investigates possible causes of abnormal readings")
-
-Takes the engineering engine's structured output (facts + anomalies[] from
-spec section 8) and produces a plain-language diagnosis PER anomaly, using
-RAG evidence for grounding.
-
-Confidence language is constrained by spec section 6:
-    Strong supporting data     -> "High confidence / likely contributor"
-    Some supporting data       -> "Medium confidence / plausible contributor"
-    Insufficient data          -> "Low confidence / requires more information"
-    No evidence                -> "Cannot determine"
-This agent does NOT recalculate any engineering figures (AC-10) - it only
-interprets the numbers the engine already computed.
-"""
-
 from agents.llm_client import call_llm
 from rag.retriever import retrieve_evidence
 
