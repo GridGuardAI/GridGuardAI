@@ -1,20 +1,3 @@
-"""
-GridGuard AI - Orchestrator Agent
-(board-deck agent #1: "directs which analyses run, and in what order")
-
-Coordinates the full pipeline per spec section 13:
-    INPUT VALIDATION -> DATA NORMALIZATION -> ENGINEERING CALCULATOR
-    -> RULE-BASED ANALYSIS -> ANOMALY DETECTION -> STRUCTURED RESULTS
-    -> AI DIAGNOSIS / RAG EVIDENCE / RECOMMENDATIONS -> DASHBOARD
-
-Deliberately implemented as plain Python control flow rather than an LLM
-call: orchestration here is "which steps run, in what order, given what
-data is available" - a deterministic routing decision, not a creative
-task. This keeps the "4 agents" story intact (this IS the Orchestrator
-Agent's job per the architecture) while not spending LLM quota on a step
-that doesn't need judgment.
-"""
-
 from engine.engineering_engine import EngineInput, run_engine, ValidationError
 from agents.consumption_fault_agent import analyze_anomaly
 from agents.recommendation_agent import generate_recommendations
