@@ -1,13 +1,3 @@
-"""
-GridGuard AI - Recommendation Agent
-(board-deck agent #4: "synthesizes findings into prioritized, actionable guidance")
-
-Takes ALL diagnosed anomalies for a report and produces a single prioritized
-recommendation list, grounded in the same RAG evidence already gathered.
-Does not touch cost figures (those come from the engine, spec 4.8) - it may
-reference them but never recompute them.
-"""
-
 from agents.llm_client import call_llm
 
 SYSTEM_PROMPT = """You are the Recommendation Agent for GridGuard AI. Given a
